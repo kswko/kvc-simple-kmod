@@ -1,0 +1,30 @@
+FROM registry.access.redhat.com/ubi8:latest
+MAINTAINER "coreos@lists.fedoraproject.org"
+WORKDIR /build/
+
+# First update the base container to latest versions of everything
+RUN yum update -y
+
+# Expecting kmod software version as an input to the build
+ARG KMODVER
+# Grab the software from upstream
+ADD https://github.com/kmods-via-containers/simple-kmod/archive/${KMODVER}.tar.gz ./file.tar.gz
+RUN tar -x --strip-components=1 -f ./file.tar.gz
+
+# Expecting kernel version as an input to the build
+ARG KVER
+
+# Note, your host must have access to repos where kernel developement
+# packages can be installed. If it doesn't the following steps will
+# fail
+RUN yum install -y http://192.168.234.2:8000/linux-firmware-20220210-107.git6342082c.el8.noarch.rpm
+RUN yum install -y http://192.168.234.2:8000/kernel-core-4.18.0-305.34.2.el8_4.x86_64.rpm
+RUN yum install -y http://192.168.234.2:8000/kernel-devel-4.18.0-305.34.2.el8_4.x86_64.rpm
+RUN yum install -y http://192.168.234.2:8000/kernel-modules-4.18.0-305.34.2.el8_4.x86_64.rpm
+RUN yum install -y http://192.168.234.2:8000/elfutils-libelf-devel-0.186-1.el8.x86_64.rpm
+
+# Prep and build the module
+RUN yum install -y make sudo
+RUN make buildprep KVER=${KVER} KMODVER=${KMODVER}
+RUN make all       KVER=${KVER} KMODVER=${KMODVER}
+RUN make install   KVER=${KVER} KMODVER=${KMODVER}
